@@ -1,5 +1,7 @@
 # Ad-Hoc OLAP Query Engine
 
+**Current public website:** [crosscut-data.vercel.app](https://crosscut-data.vercel.app). The interface is English-only and its main task requires no AI-weight download. See [current interface, datasets and execution boundaries](site/INTERFACE.md). The backend experiments and historical measurements below are separate from the current public UI.
+
 An engine for **Multi-Feature (MF)** and **Extended Multi-Feature (EMF)** queries, written as the
 *Phi operator*. It evaluates them over PostgreSQL **without using the database's GROUP BY**: it streams
 the base table through a server-side cursor and builds an in-memory *mf-structure*, one scan per
