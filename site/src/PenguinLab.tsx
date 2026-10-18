@@ -1,0 +1,425 @@
+import { createRoot } from "react-dom/client";
+import { useMemo, useState, useRef, useEffect } from "react";
+import { DotMatrixBackground } from "@designcodeio/threeui/components/DotMatrixBackground";
+import { ArrowUpRight, Intersect } from "@phosphor-icons/react";
+import data from "./data/penguins.json";
+import source from "./data/source.json";
+import {
+  execute,
+  sql,
+  same,
+  validate,
+  dimensions,
+  measures,
+  operations,
+  type Phi,
+  type Row,
+} from "./phi";
+import { useModel } from "./ai/useModel";
+import { Shell, Trace, ModelControl, useLanguage } from "./ui";
+import "./styles.css";
+const initial: Phi = {
+  groupBy: "species",
+  measure: "body_mass_g",
+  operation: "avg",
+  compare: true,
+};
+const fmt = (n: unknown) =>
+  n === null
+    ? "—"
+    : typeof n === "number"
+      ? n.toLocaleString(undefined, { maximumFractionDigits: 2 })
+      : String(n);
+export function PenguinLab() {
+  const { ja, t, toggle } = useLanguage(),
+    ai = useModel();
+  const [spec, setSpec] = useState<Phi>(initial),
+    [question, setQuestion] = useState(
+      "Compare average body mass by island, showing male and female penguins.",
+    ),
+    [suggestion, setSuggestion] = useState<Phi | null>(null),
+    [message, setMessage] = useState(""),
+    [busy, setBusy] = useState(""),
+    [entries, setEntries] = useState<unknown[]>([]);
+  const stop = useRef<() => void>(() => {}),
+    revision = useRef(0);
+  const results = useMemo(() => execute(data as Row[], spec), [spec]);
+  const names = ["group", "all", ...(spec.compare ? ["male", "female"] : [])];
+  const log = (entry: unknown) => setEntries((e) => [...e, entry]);
+  useEffect(() => () => stop.current(), []);
+  function update(p: Partial<Phi>) {
+    stop.current();
+    revision.current++;
+    setSpec((s) => ({ ...s, ...p }));
+    setMessage("");
+    setBusy("");
+  }
+  async function verify() {
+    const rev = ++revision.current;
+    setBusy("check");
+    setMessage(
+      t(
+        "Loading DuckDB, then running the equivalent SQL…",
+        "DuckDB を読込中。等価な SQL を実行します…",
+      ),
+    );
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const { check } = await import("./duck");
+      const other = await Promise.race([
+        check(sql(spec), data, (cancel) => {
+          stop.current = cancel;
+        }),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            stop.current();
+            reject(
+              new Error("DuckDB exceeded 60 seconds. Check your connection."),
+            );
+          }, 60000);
+        }),
+      ]);
+      if (rev !== revision.current) return;
+      const pass = same(results, other);
+      setMessage(
+        pass
+          ? t(
+              "Matched. Every returned group and number agrees with DuckDB.",
+              "一致。すべてのグループと数値が DuckDB と一致しました。",
+            )
+          : t(
+              "Mismatch. Do not trust this result; inspect the trace.",
+              "不一致。記録を確認してください。",
+            ),
+      );
+      log({
+        action: "compare",
+        spec,
+        sql: sql(spec),
+        phi: results,
+        duckdb: other,
+        matched: pass,
+      });
+    } catch (e) {
+      if (rev === revision.current) {
+        setMessage(String(e));
+        log({ error: String(e) });
+      }
+    } finally {
+      if (timer) clearTimeout(timer);
+      if (rev === revision.current) setBusy("");
+    }
+  }
+  async function suggest() {
+    setBusy("ai");
+    setSuggestion(null);
+    try {
+      const prompt = `Translate the request into exactly one JSON object. Keys and allowed values: groupBy: species|island|sex; measure: body_mass_g|flipper_length_mm|bill_length_mm; operation: avg|sum|count; compare: true|false (male/female comparison). Example request: mean mass per species with male/female. Reply: {"groupBy":"species","measure":"body_mass_g","operation":"avg","compare":true}\nRequest: ${question}\nJSON:`;
+      const r = await ai.generate(
+        [{ role: "user", content: prompt }],
+        undefined,
+        150,
+      );
+      log({ action: "suggest", prompt, ...r });
+      const raw = r.text.match(/\{[\s\S]*\}/)?.[0];
+      if (!raw)
+        throw new Error(
+          "Model did not produce a query object. Try the controls.",
+        );
+      const query = validate(JSON.parse(raw));
+      setSuggestion(query);
+      setMessage(
+        t(
+          "Suggested query ready. Review it before applying.",
+          "クエリ案ができました。適用前に確認してください。",
+        ),
+      );
+    } catch (e) {
+      setMessage(String(e));
+    } finally {
+      setBusy("");
+    }
+  }
+  function download() {
+    const csv = [
+      names.join(","),
+      ...results.map((r) => names.map((k) => (r as any)[k] ?? "").join(",")),
+    ].join("\n");
+    const u = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = u;
+    a.download = "penguin-summary.csv";
+    a.click();
+    URL.revokeObjectURL(u);
+  }
+  return (
+    <Shell name="CROSSCUT" number="05" ja={ja} toggle={toggle}>
+      <section className="hero">
+        <div className="shader" aria-hidden="true">
+          <DotMatrixBackground />
+        </div>
+        <p className="eyebrow reveal">
+          {t(
+            "ONE QUESTION. TWO WAYS TO CHECK IT.",
+            "一つの問い。二つの方法で検証。",
+          )}
+        </p>
+        <h1 className="reveal">
+          {t("Find the", "数字の")}
+          <br />
+          <span>{t("difference.", "違いを見つける。")}</span>
+        </h1>
+        <div className="hero-end reveal">
+          <p className="intro">
+            {t(
+              "Look across 344 real Antarctic penguins. Compare groups, ask a plain-language question, and check every aggregate with an independent SQL engine.",
+              "南極のペンギン344羽の実測データを比較。自然言語で質問し、すべての集計を独立した SQL エンジンで確かめます。",
+            )}
+          </p>
+          <a href="#explore" className="cta">
+            {t("Explore the data", "データを調べる")}
+            <ArrowUpRight size={22} />
+          </a>
+        </div>
+        <div className="ruler" aria-hidden="true">
+          00 ┊ 05 ┊ 10 ┊ 15 ┊ 20 ┊ 25 ┊ 30 ┊ 35 ┊ 40 ┊ 45 ┊ 50
+        </div>
+      </section>
+      <main id="explore">
+        <div className="section-head">
+          <div>
+            <p className="eyebrow">PALMER ARCHIPELAGO / 2007–2009</p>
+            <h2>
+              {t("A question, made concrete.", "問いを、具体的な集計に。")}
+            </h2>
+          </div>
+          <span>344 {t("observations", "件の観察")}</span>
+        </div>
+        <div className="query">
+          <label>
+            {t("Group by", "グループ")}
+            <select
+              value={spec.groupBy}
+              disabled={!!busy}
+              onChange={(e) =>
+                update({ groupBy: e.target.value as Phi["groupBy"] })
+              }
+            >
+              {dimensions.map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("Measurement", "測定値")}
+            <select
+              value={spec.measure}
+              disabled={!!busy}
+              onChange={(e) =>
+                update({ measure: e.target.value as Phi["measure"] })
+              }
+            >
+              {measures.map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("Calculation", "計算")}
+            <select
+              value={spec.operation}
+              disabled={!!busy}
+              onChange={(e) =>
+                update({ operation: e.target.value as Phi["operation"] })
+              }
+            >
+              {operations.map((x) => (
+                <option key={x}>{x}</option>
+              ))}
+            </select>
+          </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={spec.compare}
+              disabled={!!busy}
+              onChange={(e) => update({ compare: e.target.checked })}
+            />
+            {t("Compare male / female", "雄・雌を比較")}
+          </label>
+        </div>
+        <section className="result-space">
+          <div className="chart">
+            {results.map((r) => (
+              <div key={r.group} className="plot-row">
+                <strong>{r.group}</strong>
+                <span>{fmt(r.all)}</span>
+                <div className="plot-bar">
+                  <i
+                    style={{
+                      width:
+                        ((r.all ?? 0) /
+                          Math.max(1, ...results.map((x) => x.all ?? 0))) *
+                          100 +
+                        "%",
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+            <p className="note">
+              {t(
+                "Bars show the all-penguin aggregate. Mass is grams, length is millimetres. Count excludes missing selected measurements.",
+                "棒は全体の集計。質量はグラム、長さはミリメートル。件数は選択した測定値の欠損を除外します。",
+              )}
+            </p>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  {names.map((n) => (
+                    <th key={n}>{n}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r) => (
+                  <tr key={r.group}>
+                    {names.map((n) => (
+                      <td key={n}>{fmt((r as any)[n])}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <div className="actions">
+          <button className="cta" onClick={verify} disabled={!!busy}>
+            <Intersect size={20} />
+            {busy === "check"
+              ? t("Checking…", "照合中…")
+              : t("Check with DuckDB", "DuckDB で照合")}
+          </button>
+          <button onClick={download}>{t("Download CSV", "CSV を保存")}</button>
+          {busy && (
+            <button
+              onClick={() => {
+                stop.current();
+                ai.stop();
+                revision.current++;
+                setBusy("");
+                setMessage(
+                  t(
+                    "Stopped. No verification recorded.",
+                    "停止しました。照合は記録されません。",
+                  ),
+                );
+              }}
+            >
+              {t("Stop", "停止")}
+            </button>
+          )}
+        </div>
+        <output role="status">{message}</output>
+        <section className="ask">
+          <div>
+            <p className="eyebrow">
+              {t("LET LANGUAGE DO THE SETUP", "言葉で集計を準備")}
+            </p>
+            <h3>{t("Ask it your way.", "自分の言葉で質問。")}</h3>
+            <p>
+              {t(
+                "“Average flipper length by species.” The AI proposes a bounded query. You review it, then the deterministic engine does the arithmetic.",
+                "「種別の平均フリッパー長」。AI が範囲の決まったクエリを提案し、確認後にエンジンが計算します。",
+              )}
+            </p>
+          </div>
+          <div>
+            <textarea
+              aria-label={t("Your data question", "データへの質問")}
+              value={question}
+              disabled={!!busy}
+              maxLength={500}
+              onChange={(e) => {
+                setQuestion(e.target.value);
+                setSuggestion(null);
+              }}
+            />
+            <ModelControl
+              state={ai.state}
+              load={ai.load}
+              stop={ai.stop}
+              ja={ja}
+            />
+            <button
+              disabled={!!busy || ai.state.phase !== "ready"}
+              onClick={suggest}
+            >
+              {t("Suggest a query", "クエリを提案")}
+            </button>
+            {suggestion && (
+              <div className="suggestion">
+                <pre>{JSON.stringify(suggestion, null, 2)}</pre>
+                <button
+                  className="cta"
+                  onClick={() => {
+                    update(suggestion);
+                    setSuggestion(null);
+                  }}
+                >
+                  {t("Use this query", "このクエリを使う")}
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+        <section id="how" className="how">
+          <p className="eyebrow">
+            {t("WHAT THIS DOES FOR YOU", "何に役立つか")}
+          </p>
+          <h2>
+            {t(
+              "Compare across groups without losing the question.",
+              "問いを見失わずに、グループ間を比較。",
+            )}
+          </h2>
+          <p>
+            {t(
+              "A researcher might ask whether males and females differ in body mass within each species. A business analyst asks the same kind of question about regions and customer segments. Crosscut keeps those conditional aggregates together: one group structure, separate accumulators for all, male and female, then a readable result.",
+              "研究者なら種ごとの雌雄の体重差を、ビジネス担当者なら地域や顧客層の差を調べます。同じグループ構造で条件別の集計を持ち、結果を分かりやすく表示します。",
+            )}
+          </p>
+          <p className="note">
+            {t(
+              "This is a deliberately bounded TypeScript Phi-style port: one group key, three numeric measures and three aggregates. It does not implement the Python engine’s arbitrary grouping-variable dependencies or full MF/EMF language. DuckDB checks equivalent SQL independently at 1e-8 relative tolerance; agreement does not prove that your question or data is correct.",
+              "範囲を限定した TypeScript の Phi 型移植です。Python 版の完全な MF/EMF 言語ではありません。DuckDB で同じ SQL を許容誤差1e-8で照合しますが、問いやデータ自体の正しさは保証しません。",
+            )}
+          </p>
+          <div className="record">
+            <strong>8 / 8</strong>
+            <p>
+              {t(
+                "Recorded Python engine queries matched hand-written SQL at 10,000 and 200,000 synthetic sales rows. The public penguin browser dataset is a separate, new example.",
+                "記録済み Python エンジンは、合成売上1万件・20万件で手書き SQL と8問すべて一致。ここでの公開ペンギンデータは別の新しい例です。",
+              )}
+            </p>
+          </div>
+          <a href="https://github.com/srini1998/adhoc-olap-engine">
+            {t("Source & full Phi engine", "ソースと完全な Phi エンジン")} ↗
+          </a>{" "}
+          ·{" "}
+          <a href="https://allisonhorst.github.io/palmerpenguins/">
+            palmerpenguins · CC0 ↗
+          </a>
+          <details>
+            <summary>{t("Dataset provenance", "データの出典")}</summary>
+            <pre>{JSON.stringify(source, null, 2)}</pre>
+          </details>
+        </section>
+      </main>
+      <Trace ja={ja} entries={entries} />
+    </Shell>
+  );
+}

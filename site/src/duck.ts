@@ -4,7 +4,10 @@ export async function check(
   sql: string,
   rows: unknown[],
   onStop: (stop: () => void) => void,
+  tableName: "penguins" | "matches" = "penguins",
 ) {
+  if (!["penguins", "matches"].includes(tableName))
+    throw new Error("Unsupported table");
   const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
   const blob = URL.createObjectURL(
     new Blob([`importScripts(${JSON.stringify(bundle.mainWorker)});`], {
@@ -24,10 +27,10 @@ export async function check(
   let conn: duckdb.AsyncDuckDBConnection | undefined;
   try {
     await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-    await db.registerFileText("penguins.json", JSON.stringify(rows));
+    await db.registerFileText(tableName + ".json", JSON.stringify(rows));
     conn = await db.connect();
     await conn.query(
-      `CREATE TABLE penguins AS SELECT * FROM read_json_auto('penguins.json')`,
+      `CREATE TABLE ${tableName} AS SELECT * FROM read_json_auto('${tableName}.json')`,
     );
     const table = await conn.query(sql);
     return table
