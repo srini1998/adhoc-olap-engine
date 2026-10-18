@@ -1,3 +1,9 @@
 {
-  "installCommand": "ONNXRUNTIME_NODE_INSTALL=skip npm ci"
+  "installCommand": "ONNXRUNTIME_NODE_INSTALL=skip npm ci",
+  "rewrites": [
+    {
+      "source": "/penguins",
+      "destination": "/index.html"
+    }
+  ]
 }
