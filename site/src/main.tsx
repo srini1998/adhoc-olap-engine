@@ -342,7 +342,10 @@ function App() {
               value={question}
               disabled={!!busy}
               maxLength={500}
-              onChange={(e) => setQuestion(e.target.value)}
+              onChange={(e) => {
+                setQuestion(e.target.value);
+                setSuggestion(null);
+              }}
             />
             <ModelControl
               state={ai.state}
