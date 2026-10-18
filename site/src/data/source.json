@@ -1,0 +1,8 @@
+{
+  "source": "https://github.com/allisonhorst/palmerpenguins/blob/main/inst/extdata/penguins.csv",
+  "source_sha256": "f204db2c753b0937caac3cb35258562c14f073e4bbc76be24b4c51ce22767a93",
+  "license": "CC0",
+  "attribution": "Gorman, Palmer Station LTER; Horst, Hill & Gorman (2020), palmerpenguins. 2007\u20132009, Palmer Archipelago, Antarctica.",
+  "rows": 344,
+  "missing": "Numeric NA is null; sex NA grouped as unknown. Aggregates exclude missing measurements."
+}
