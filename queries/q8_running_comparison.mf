@@ -1,0 +1,14 @@
+# EMF over time: per customer and year, number of earlier-year purchases and the
+# number of purchases in this year above the customer's all-time average (two levels).
+SELECT ATTRIBUTE(S):
+cust, year, 1_count_quant, 3_count_quant
+NUMBER OF GROUPING VARIABLES(n):
+3
+GROUPING ATTRIBUTES(V):
+cust, year
+F-VECT([F]):
+1_count_quant, 2_avg_quant, 3_count_quant
+SELECT CONDITION-VECT([σ]):
+1.cust = cust and 1.year < year
+2.cust = cust
+3.cust = cust and 3.year = year and 3.quant > 2_avg_quant

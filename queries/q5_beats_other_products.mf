@@ -1,0 +1,12 @@
+# EMF without an equality key: per product, how many sales of *other* products had
+# a larger quantity than this product's overall average. Exercises the full-probe path.
+SELECT ATTRIBUTE(S):
+prod, 0_avg_quant, 1_count_quant
+NUMBER OF GROUPING VARIABLES(n):
+1
+GROUPING ATTRIBUTES(V):
+prod
+F-VECT([F]):
+0_avg_quant, 1_count_quant
+SELECT CONDITION-VECT([σ]):
+1.prod <> prod and 1.quant > 0_avg_quant

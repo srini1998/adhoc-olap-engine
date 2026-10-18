@@ -1,0 +1,12 @@
+# MF with whole-group aggregates: per product and month, how many sales were in the
+# first half of the month versus all sales, and the total quantity.
+SELECT ATTRIBUTE(S):
+prod, month, 1_count_quant, 0_count_quant, 0_sum_quant
+NUMBER OF GROUPING VARIABLES(n):
+1
+GROUPING ATTRIBUTES(V):
+prod, month
+F-VECT([F]):
+1_count_quant, 0_count_quant, 0_sum_quant
+SELECT CONDITION-VECT([σ]):
+1.prod = prod and 1.month = month and 1.day <= 14

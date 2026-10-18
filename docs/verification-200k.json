@@ -1,0 +1,151 @@
+{
+  "base_rows": 200000,
+  "queries": 8,
+  "failures": 0,
+  "results": [
+    {
+      "query": "q1_state_averages.mf",
+      "rows": 3,
+      "groups": 10,
+      "scans": 2,
+      "indexed_gvs": [
+        1,
+        2,
+        3
+      ],
+      "full_probe_gvs": [],
+      "interpreter_matches_sql": true,
+      "generated_matches_interpreter": true,
+      "seconds": {
+        "interpreter": 0.846,
+        "generated": 0.708,
+        "postgres_sql": 0.043
+      }
+    },
+    {
+      "query": "q2_product_month_share.mf",
+      "rows": 120,
+      "groups": 120,
+      "scans": 2,
+      "indexed_gvs": [
+        1
+      ],
+      "full_probe_gvs": [],
+      "interpreter_matches_sql": true,
+      "generated_matches_interpreter": true,
+      "seconds": {
+        "interpreter": 1.003,
+        "generated": 0.804,
+        "postgres_sql": 0.017
+      }
+    },
+    {
+      "query": "q3_neighbor_months.mf",
+      "rows": 120,
+      "groups": 120,
+      "scans": 2,
+      "indexed_gvs": [
+        1,
+        2
+      ],
+      "full_probe_gvs": [],
+      "interpreter_matches_sql": true,
+      "generated_matches_interpreter": true,
+      "seconds": {
+        "interpreter": 1.242,
+        "generated": 0.882,
+        "postgres_sql": 0.015
+      }
+    },
+    {
+      "query": "q4_between_neighbors.mf",
+      "rows": 120,
+      "groups": 120,
+      "scans": 3,
+      "indexed_gvs": [
+        1,
+        2,
+        3
+      ],
+      "full_probe_gvs": [],
+      "interpreter_matches_sql": true,
+      "generated_matches_interpreter": true,
+      "seconds": {
+        "interpreter": 1.819,
+        "generated": 1.138,
+        "postgres_sql": 1.222
+      }
+    },
+    {
+      "query": "q5_beats_other_products.mf",
+      "rows": 10,
+      "groups": 10,
+      "scans": 3,
+      "indexed_gvs": [],
+      "full_probe_gvs": [
+        1
+      ],
+      "interpreter_matches_sql": true,
+      "generated_matches_interpreter": true,
+      "seconds": {
+        "interpreter": 2.975,
+        "generated": 1.448,
+        "postgres_sql": 0.177
+      }
+    },
+    {
+      "query": "q6_where_extremes.mf",
+      "rows": 40,
+      "groups": 40,
+      "scans": 2,
+      "indexed_gvs": [
+        1
+      ],
+      "full_probe_gvs": [],
+      "interpreter_matches_sql": true,
+      "generated_matches_interpreter": true,
+      "seconds": {
+        "interpreter": 0.629,
+        "generated": 0.626,
+        "postgres_sql": 0.009
+      }
+    },
+    {
+      "query": "q7_having_logic.mf",
+      "rows": 1,
+      "groups": 100,
+      "scans": 2,
+      "indexed_gvs": [
+        1,
+        2
+      ],
+      "full_probe_gvs": [],
+      "interpreter_matches_sql": true,
+      "generated_matches_interpreter": true,
+      "seconds": {
+        "interpreter": 0.775,
+        "generated": 0.722,
+        "postgres_sql": 0.017
+      }
+    },
+    {
+      "query": "q8_running_comparison.mf",
+      "rows": 50,
+      "groups": 50,
+      "scans": 3,
+      "indexed_gvs": [
+        1,
+        2,
+        3
+      ],
+      "full_probe_gvs": [],
+      "interpreter_matches_sql": true,
+      "generated_matches_interpreter": true,
+      "seconds": {
+        "interpreter": 2.828,
+        "generated": 1.579,
+        "postgres_sql": 1.204
+      }
+    }
+  ]
+}

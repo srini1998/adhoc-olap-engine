@@ -1,0 +1,20 @@
+[project]
+name = "adhoc-olap-engine"
+version = "0.1.0"
+description = "Multi-Feature / Extended Multi-Feature (Phi operator) OLAP query engine over PostgreSQL"
+requires-python = ">=3.12"
+dependencies = ["psycopg[binary]>=3.2"]
+
+[project.scripts]
+olap = "olap.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["uv_build>=0.11.14,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+module-name = "olap"
