@@ -1,2 +1,50 @@
-import * as duckdb from '@duckdb/duckdb-wasm';import type{Result}from'./phi';
-export async function check(sql:string,rows:unknown[],onStop:(stop:()=>void)=>void){const bundle=await duckdb.selectBundle(duckdb.getJsDelivrBundles());const blob=URL.createObjectURL(new Blob([`importScripts(${JSON.stringify(bundle.mainWorker)});`],{type:'text/javascript'}));const worker=new Worker(blob);URL.revokeObjectURL(blob);const db=new duckdb.AsyncDuckDB(new duckdb.ConsoleLogger(duckdb.LogLevel.ERROR),worker);onStop(()=>{void db.terminate();worker.terminate()});let conn:duckdb.AsyncDuckDBConnection|undefined;try{await db.instantiate(bundle.mainModule,bundle.pthreadWorker);await db.registerFileText('penguins.json',JSON.stringify(rows));conn=await db.connect();await conn.query(`CREATE TABLE penguins AS SELECT * FROM read_json_auto('penguins.json')`);const table=await conn.query(sql);return table.toArray().map((r:any)=>{const o=r.toJSON();return Object.fromEntries(Object.entries(o).map(([k,v])=>[k,typeof v==='bigint'?Number(v):v])) as Result;}).sort((a,b)=>a.group.localeCompare(b.group));}finally{await conn?.close().catch(()=>{});await db.terminate();worker.terminate();}}
+import * as duckdb from "@duckdb/duckdb-wasm";
+import type { Result } from "./phi";
+export async function check(
+  sql: string,
+  rows: unknown[],
+  onStop: (stop: () => void) => void,
+) {
+  const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
+  const blob = URL.createObjectURL(
+    new Blob([`importScripts(${JSON.stringify(bundle.mainWorker)});`], {
+      type: "text/javascript",
+    }),
+  );
+  const worker = new Worker(blob);
+  URL.revokeObjectURL(blob);
+  const db = new duckdb.AsyncDuckDB(
+    new duckdb.ConsoleLogger(duckdb.LogLevel.ERROR),
+    worker,
+  );
+  onStop(() => {
+    void db.terminate();
+    worker.terminate();
+  });
+  let conn: duckdb.AsyncDuckDBConnection | undefined;
+  try {
+    await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+    await db.registerFileText("penguins.json", JSON.stringify(rows));
+    conn = await db.connect();
+    await conn.query(
+      `CREATE TABLE penguins AS SELECT * FROM read_json_auto('penguins.json')`,
+    );
+    const table = await conn.query(sql);
+    return table
+      .toArray()
+      .map((r: any) => {
+        const o = r.toJSON();
+        return Object.fromEntries(
+          Object.entries(o).map(([k, v]) => [
+            k,
+            typeof v === "bigint" ? Number(v) : v,
+          ]),
+        ) as Result;
+      })
+      .sort((a, b) => a.group.localeCompare(b.group));
+  } finally {
+    await conn?.close().catch(() => {});
+    await db.terminate();
+    worker.terminate();
+  }
+}
