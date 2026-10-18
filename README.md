@@ -47,7 +47,7 @@ EMF conditions may relate a row to *other* groups, for example the previous mont
 ## Run it
 
 ```bash
-./scripts/pg.sh            # throwaway local PostgreSQL 17 cluster on :54562
+./scripts/pg.sh            # throwaway local cluster on :54562 (verified with PostgreSQL 14.17; CI uses 17)
 uv sync
 uv run olap seed           # 10,000 deterministic synthetic sales rows
 uv run olap explain queries/q4_between_neighbors.mf
