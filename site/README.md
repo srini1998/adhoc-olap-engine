@@ -1,6 +1,6 @@
 # Crosscut
 
-Explore real football goals/points and verify the results with independent DuckDB SQL.
+Explore real soccer goals/points and verify the results with independent DuckDB SQL.
 
 The public interface is English-only. Its main task requires no AI weights, account or paid API. See [current interface, data, verification and limits](INTERFACE.md) for the exact execution boundaries and the separately retained backend experiments.
 

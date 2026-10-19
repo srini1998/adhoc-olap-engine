@@ -113,7 +113,7 @@ function App() {
     const u = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = document.createElement("a");
     a.href = u;
-    a.download = "crosscut-football.csv";
+    a.download = "crosscut-soccer.csv";
     a.click();
     URL.revokeObjectURL(u);
   }
@@ -126,7 +126,7 @@ function App() {
     >
       <section className="hero football-hero">
         <div>
-          <p className="eyebrow">THE FOOTBALL DATA, WITHOUT THE SPREADSHEET</p>
+          <p className="eyebrow">THE SOCCER DATA, WITHOUT THE SPREADSHEET</p>
           <h1>
             Who scored?
             <br />
