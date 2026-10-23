@@ -15,6 +15,8 @@ import {
   type Result,
 } from "./football-query";
 import { Shell, Trace } from "./ui";
+import { useModel } from "./ai/useModel";
+import { agentPrompt, extractSql, guardSql, limited, ROW_LIMIT, type Guard } from "./sql-guard";
 import "./styles.css";
 const Penguin = lazy(() =>
     import("./PenguinLab").then((m) => ({ default: m.PenguinLab })),
@@ -44,6 +46,44 @@ function App() {
   const results = useMemo(() => execute(rows, spec), [spec]);
   const names = ["group", "all", ...(spec.compare ? ["home", "away"] : [])];
   const log = (e: unknown) => setEntries((a) => [...a, e]);
+  const ai = useModel();
+  const [agent, setAgent] = useState<{
+    question: string;
+    guard?: Guard;
+    model?: string;
+    ms?: number;
+    runMs?: number;
+    result?: { columns: string[]; rows: Record<string, unknown>[] };
+    error?: string;
+    phase: "writing" | "running" | "done";
+  } | null>(null);
+  async function askAgent() {
+    const q = question.trim();
+    if (!q) return;
+    setAgent({ question: q, phase: "writing" });
+    let guard: Guard | undefined, model: string | undefined, ms: number | undefined;
+    try {
+      const prompt = agentPrompt(q);
+      const r = await ai.generate([{ role: "user", content: prompt }], undefined, 400);
+      model = r.model;
+      ms = r.ms;
+      guard = guardSql(extractSql(r.text));
+      log({ action: "cloud-sql-agent", prompt, ...r, guard });
+      if (!guard.ok) {
+        setAgent({ question: q, guard, model, ms, phase: "done", error: "The guard rejected this SQL, so it was not run." });
+        return;
+      }
+      setAgent({ question: q, guard, model, ms, phase: "running" });
+      const { runQuery } = await import("./duck");
+      const started = performance.now();
+      const result = await runQuery(limited(guard.sql), rows, () => {});
+      const runMs = Math.round(performance.now() - started);
+      log({ action: "run-agent-sql", sql: limited(guard.sql), rows: result.rows.length, runMs });
+      setAgent({ question: q, guard, model, ms, runMs, result, phase: "done" });
+    } catch (e) {
+      setAgent({ question: q, guard, model, ms, phase: "done", error: e instanceof Error ? e.message : String(e) });
+    }
+  }
   function update(p: Partial<Spec>) {
     stop.current();
     revision.current++;
@@ -215,6 +255,72 @@ function App() {
                 </button>
               </div>
             )}
+            <div className="sql-agent" aria-live="polite">
+              <p className="eyebrow">OPTIONAL CLOUD SQL AGENT · CHECKED, NOT TRUSTED</p>
+              <p className="note">
+                For questions the rule-based translator cannot handle, an AI
+                agent writes DuckDB SQL for the same question. Code checks it
+                is one read-only SELECT over this table only, then runs it in
+                your browser (max {ROW_LIMIT} rows). Read the SQL — a query
+                that runs can still answer the wrong question.
+              </p>
+              <button
+                onClick={askAgent}
+                disabled={ai.state.phase !== "ready" || agent?.phase === "writing" || agent?.phase === "running"}
+              >
+                {agent?.phase === "writing"
+                  ? "Writing SQL…"
+                  : agent?.phase === "running"
+                    ? "Running in DuckDB…"
+                    : "Write SQL with AI"}
+              </button>
+              {ai.state.phase !== "ready" && (
+                <p className="note">
+                  {ai.state.message || "Checking whether the free cloud model is connected…"}
+                </p>
+              )}
+              {agent?.guard && (
+                <>
+                  <pre className="agent-sql">{agent.guard.sql || "(no SQL returned)"}</pre>
+                  <ul className="guard-list">
+                    {agent.guard.checks.map((c) => (
+                      <li key={c.name} className={c.ok ? "ok" : "bad"}>
+                        {c.ok ? "✓" : "✗"} {c.name}
+                        {!c.ok && c.detail ? ` (${c.detail})` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="note">
+                    {agent.model} on Groq’s free plan · {agent.ms} ms to write
+                    {agent.runMs != null ? ` · DuckDB ran it in ${agent.runMs} ms` : ""}
+                  </p>
+                </>
+              )}
+              {agent?.error && <p role="alert">{agent.error}</p>}
+              {agent?.result && (
+                <div className="agent-table">
+                  <table>
+                    <thead>
+                      <tr>{agent.result.columns.map((c) => <th key={c}>{c}</th>)}</tr>
+                    </thead>
+                    <tbody>
+                      {agent.result.rows.slice(0, 50).map((r, i) => (
+                        <tr key={i}>
+                          {agent.result!.columns.map((c) => (
+                            <td key={c}>{typeof r[c] === "number" ? fmt(r[c] as number) : String(r[c] ?? "—")}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="note">
+                    {agent.result.rows.length} row{agent.result.rows.length === 1 ? "" : "s"}
+                    {agent.result.rows.length > 50 ? " (first 50 shown)" : ""}. Computed by DuckDB from the
+                    real snapshot, not by the model.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
           <section className="query-controls">
             <label htmlFor="season">Season</label>
